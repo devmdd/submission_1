@@ -1,0 +1,4 @@
+{"lead_id": "L001", "channel": "whatsapp", "conversation": [
+  {"role": "lead", "text": "Hi, looking for wholesale Monster Energy supply for Singapore. 1 FCL/month."},
+  {"role": "agent", "text": "Could you confirm your import license and history?"},
+  {"role": "lead", "text": "Yes, licensed 4 years. Currently import 2 brands."}]}
