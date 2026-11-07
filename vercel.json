@@ -1,5 +1,4 @@
 {
-  "functions": {
-    "api/**/*.py": { "maxDuration": 30 }
-  }
+  "framework": null,
+  "functions": {"api/**/*.py": {"maxDuration": 30}}
 }
