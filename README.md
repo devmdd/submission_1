@@ -52,4 +52,3 @@ License 30 · Volume 30 · Product/market fit 20 · Business signals 20. Hot ≥
 ```
 pip install -r requirements-dev.txt && pytest -q
 ```
-# submission_1
