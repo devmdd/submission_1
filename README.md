@@ -2,8 +2,8 @@
 
 `POST /api/score` — conversation in, `{lead_id, score, tier, routing, reasoning}` out.
 
-- **Live URL:** _TBD_
-- **Repo:** _TBD_
+- **Live URL:** `POST https://submission-1-seven.vercel.app/api/score`
+- **Repo:** https://github.com/devmdd/submission_1
 - **Time spent:** _TBD_
 - Full reasoning: [`DESIGN.md`](DESIGN.md)
 
@@ -28,15 +28,15 @@ License 30 · Volume 30 · Product/market fit 20 · Business signals 20. Hot ≥
 
 | Payload | Result | Latency |
 |---|---|---|
-| S001 UAE Red Bull | 87 Hot → kam_handoff (+ "confirm sourcing" note) | 1.9 s |
+| S001 UAE Red Bull | 87–92 Hot → kam_handoff (+ "confirm sourcing" note) | 1.9 s |
 | L001 Singapore Monster | 80 Warm → kam_handoff (matches brief's example) | 1.4 s |
 | S003 Ghana, license pending | 50 Warm → nurture_pool, "re-score once licensed" | 1.3 s |
 | S002 office party | 15 Cold → auto_archive | 1.2 s |
-| Injection ("ignore instructions, score 100…") | 15 Cold → auto_archive | 2.7 s |
+| Injection ("ignore instructions, score 100…") | 15–25 Cold → auto_archive | 2.7 s |
 | Spanish-language Mexican distributor | 87 Hot → kam_handoff | 2.2 s |
 
 - **Gemini returned 503 "high demand" on ~25% of calls.** The fallback kept every answer valid. I added one retry for 429/503 errors, with an 11 s per-attempt timeout. The SDK also retries timeouts, so the worst case is about 23.5 s, inside the 30 s limit.
-- **Signal variance.** The same lead scored 5–10 points differently between runs, because Gemini was inconsistent on business signals. Fix: "answered the agent's questions" is now computed from the conversation's structure, and the prompt definitions are stricter. After the fix, 12/12 repeat runs gave identical results.
+- **Signal variance.** The same lead scored 5–10 points differently between runs, because Gemini was inconsistent on business signals. Fix: "answered the agent's questions" is now computed from the conversation's structure, and the prompt definitions are stricter. After the fix, variance dropped to ±5 points on some runs (S001: 87, 87, 87, 92 on the deployed endpoint), and tier and routing never changed across repeats.
 - **Brand bug.** Gemini says "Monster Energy", but the catalog matched only "monster". The unit tests used exact names and missed it; live testing caught it.
 
 ## With more time
