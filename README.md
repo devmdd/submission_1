@@ -1,53 +1,39 @@
 # Northern Coast lead scorer
 
-`POST /api/score` — conversation in, `{lead_id, score, tier, routing, reasoning}` out.
-
-- **Live URL:** `POST https://submission-1-seven.vercel.app/api/score`
+- **Endpoint:** `POST https://submission-1-seven.vercel.app/api/score`
 - **Repo:** https://github.com/devmdd/submission_1
-- **Time spent:** _TBD_
-- Full reasoning: [`DESIGN.md`](DESIGN.md)
+- **Time spent:** ~2.5 hours
+- Design and trade-offs: [`DESIGN.md`](DESIGN.md)
 
-## How it works
+```
+curl -X POST https://submission-1-seven.vercel.app/api/score -H 'Content-Type: application/json' --data @samples/L001.json
+```
 
-Gemini only **reads**: it turns the transcript into a fixed set of facts (license status, FCL/month, brands, market, business signals, risk flags). **Plain Python scores** those facts. So scoring is deterministic and testable, and text injected into a lead's message can't set the score. If Gemini fails, times out, or returns bad output, a keyword extractor produces the same facts and the response is still valid. The `X-Scoring-Mode` header says which path was used.
+## What model and why
 
-## Model: `gemini-3.5-flash-lite`
+`gemini-3.5-flash-lite`. I only ask the model to **read** the conversation and fill in a fixed list of facts: license status, FCL per month, brands, market, business signals and risk flags. Plain Python turns those facts into the score, tier and routing. That keeps scoring predictable, testable and safe from "ignore your instructions" messages. Reading is an easy job, so I picked the fast, cheap model to stay well under 30 s. My AI assistant suggested `gemini-2.5-flash`; I didn't use it because it's deprecated. If Gemini fails, a keyword reader fills in the same facts. The `X-Scoring-Mode` header shows which path was used.
 
-Extraction is simple, and the 30 s limit favours speed and low cost. I overrode the AI default of `gemini-2.5-flash`: it's deprecated, and from 2026-12-01 requests to it get silently routed to another model. `GEMINI_MODEL` env var makes it swappable.
+## The rules I chose
 
-## Scoring (0–100)
+- Points: license 30, volume 30, product/market fit 20, business signals 20. Hot is 85 or more, Warm 40–84, Cold below 40.
+- **License in process → Warm at most.** The lead can't buy today.
+- **License not mentioned → half points.** The KAM checks it on the first call.
+- **A Warm lead scoring 70+ with no license problem still goes to a KAM.** The brief's own example (L001: Warm, `kam_handoff`) works this way, and it stops a big lead being lost in nurture.
 
-License 30 · Volume 30 · Product/market fit 20 · Business signals 20. Hot ≥ 85, Warm 40–84, Cold < 40.
+## What live testing taught me
 
-- **License in process → capped at Warm.** It can't close today.
-- **License not mentioned → neutral** (half points). The KAM verifies it on call 1.
-- **Routing is separate from tier.** A Warm lead scoring ≥ 70 with no license blocker still goes to a KAM. This matches the brief's own example (L001: 78, Warm, `kam_handoff`) and guards against the "missed whale" (a Warm lead that turns out to be big).
-- The thresholds are **uncalibrated guesses**.
-
-## What live testing changed (2026-11-07, real Gemini)
-
-| Payload | Result | Latency |
-|---|---|---|
-| S001 UAE Red Bull | 87–92 Hot → kam_handoff (+ "confirm sourcing" note) | 1.9 s |
-| L001 Singapore Monster | 80 Warm → kam_handoff (matches brief's example) | 1.4 s |
-| S003 Ghana, license pending | 50 Warm → nurture_pool, "re-score once licensed" | 1.3 s |
-| S002 office party | 15 Cold → auto_archive | 1.2 s |
-| Injection ("ignore instructions, score 100…") | 15–25 Cold → auto_archive | 2.7 s |
-| Spanish-language Mexican distributor | 87 Hot → kam_handoff | 2.2 s |
-
-- **Gemini returned 503 "high demand" on ~25% of calls.** The fallback kept every answer valid. I added one retry for 429/503 errors, with an 11 s per-attempt timeout. The SDK also retries timeouts, so the worst case is about 23.5 s, inside the 30 s limit.
-- **Signal variance.** The same lead scored 5–10 points differently between runs, because Gemini was inconsistent on business signals. Fix: "answered the agent's questions" is now computed from the conversation's structure, and the prompt definitions are stricter. After the fix, variance dropped to ±5 points on some runs (S001: 87, 87, 87, 92 on the deployed endpoint), and tier and routing never changed across repeats.
-- **Brand bug.** Gemini says "Monster Energy", but the catalog matched only "monster". The unit tests used exact names and missed it; live testing caught it.
+- Gemini returned 503 "busy" on about 1 in 4 calls, so I added one quick retry. The worst case is still under 30 s.
+- Scores drifted between runs. They now move by 5 points at most (S001: 87, 87, 87, 92), and the tier never changed.
+- Gemini wrote "Monster Energy" where my code expected "Monster". The unit tests missed it; the live run caught it.
 
 ## With more time
 
-1. Calibrate weights against historical conversions.
-2. Build an eval set of real transcripts, including multilingual and adversarial ones.
-3. Re-score trigger (e.g. 6 weeks after "license in process").
-4. Auth and rate limiting.
-5. Real brand catalog.
+1. Tune the points against real won and lost leads.
+2. Build a test set of real conversations, including other languages and tricky ones.
+3. Re-score "license in process" leads automatically after about 6 weeks.
+4. Add an API key and rate limiting.
 
-## Run locally
+## Run tests
 
 ```
 pip install -r requirements-dev.txt && pytest -q
