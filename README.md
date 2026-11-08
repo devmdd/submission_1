@@ -2,7 +2,7 @@
 
 - **Endpoint:** `POST https://submission-1-seven.vercel.app/api/score`
 - **Repo:** https://github.com/devmdd/submission_1
-- **Time spent:** ~1.5 hours
+- **Time spent:** ~50 minutes
 - Design and trade-offs: [`DESIGN.md`](DESIGN.md)
 
 ```
